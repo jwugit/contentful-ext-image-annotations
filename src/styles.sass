@@ -1,0 +1,89 @@
+
+html,
+body,
+div
+  margin: 0
+  padding: 0
+  border: 0
+  font-size: 100%
+  font: inherit
+  vertical-align: baseline
+
+.ext-img-annotate
+  min-height: 700px
+  overflow-wrap: break-word
+
+.annotationPanel
+  position: relative
+
+.selectedImage
+  position: relative
+  border: solid 1px red
+  display: inline-block
+
+  img
+    width: 700px
+    max-width: 100%
+
+.selectedImageAnnotation
+  position: absolute
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+  max-width: 720px
+  //border: solid 1px purple
+
+.selectedImageAnnotationInner
+  position: relative
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+
+.selectedAnn
+  outline: 1px dashed green
+
+.imageList
+  position: relative
+  display: flex
+  justify-content: flex-start
+  align-items: flex-start
+  box-sizing: border-box
+
+  img
+    width: 100px
+    height: 100px
+    margin: 0
+    object-fit: contain
+    border: 1px solid #d3dce0
+
+  div
+    position: relative
+    display: flex
+    flex-direction: column
+    justify-content: flex-start
+    align-items: center
+    margin: 0 10px
+    text-align: center
+
+    &.exist
+      cursor: pointer
+
+    &.selected
+      border: 3px solid #0baa75
+      img
+        border: none
+
+
+.widthInput
+  display: inline-flex
+
+li
+  margin-bottom: 5px
+
+.inline
+  display: inline-flex
+  margin: 1px
+
+
