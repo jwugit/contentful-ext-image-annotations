@@ -326,7 +326,7 @@ export class App extends React.Component {
       locale: this.props.sdk.field.locale,
       contentTypes: ["imageOption"],
     }).then(selectedEntry => {
-      // console.log("selectedEntry", selectedEntry)
+      console.log("selectedEntry", selectedEntry)
       if (selectedEntry && selectedEntry.sys && selectedEntry.sys.id) {
         this.updateAnnotationDataForProp("imageSrcId", selectedEntry.sys.id);
       }
