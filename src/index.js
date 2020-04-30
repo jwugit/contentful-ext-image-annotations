@@ -68,11 +68,11 @@ export class App extends React.Component {
 
     const nowId = (this.props.sdk.field.getValue() || {}).imageSrcId;
 
-    // console.log("nowId", nowId)
-    // console.log("this.state.imgSourceId", this.state.imgSourceId)
+    console.log("nowId", nowId)
+    console.log("this.state.imgSourceId", this.state.imgSourceId)
 
-    if(nowId && this.state.imgSourceId && nowId !== this.state.imgSourceId) {
-      // console.log("difffffffffffffffffffffffff")
+    if(nowId !== this.state.imgSourceId) {
+      console.log("diff")
       this.debounceSetImageUrls(nowId)
     }
 
