@@ -2,17 +2,11 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
-import { TextInput, Select, Option, Button, Textarea } from '@contentful/forma-36-react-components';
+import { TextInput, Select, Option, Button, Dropdown, DropdownList, DropdownListItem,  Icon, TextLink } from '@contentful/forma-36-react-components';
 import { init } from 'contentful-ui-extensions-sdk';
 import '@contentful/forma-36-react-components/dist/styles.css';
 import './styles.sass';
 import Annotations from "react-annotation/lib/index"
-import {Trail} from 'react-spring/renderprops.cjs'
-import TypesUI from "./Types"
-import imgCurve from './img/a-curve.png'
-
-const contentful = require('contentful')
-let client = null
 
 const widthOptions = {
   large: [500, 600, 700, 800, 1024, 1440],
@@ -47,12 +41,6 @@ export class App extends React.Component {
 
     this.imageRef = React.createRef();
 
-    client = contentful.createClient({
-      space: 'exql6ar8lq2x',
-      accessToken: '_RJdSlFESMI_Q4FUsi50lCjmfhhkZYrpISp2k6I9DGg',
-      host: 'preview.contentful.com',
-      environment: 'master',
-    })
   }
 
   componentDidMount() {
@@ -61,18 +49,17 @@ export class App extends React.Component {
 
     // Handler for external field value changes (e.g. when multiple authors are working on the same entry).
     this.detachExternalChangeHandler = this.props.sdk.field.onValueChanged(this.onExternalChange);
-    this.fetchImageUrls();
+    if(this.state.annotationsData && this.state.annotationsData.imageSrcId) {
+      this.setImageUrls(this.state.annotationsData.imageSrcId);
+    }
 
-    this.props.sdk.entry.fields.imageSource.onValueChanged('en-US', value => {
+
+    this.props.sdk.entry.fields.imageSource.onValueChanged(this.props.sdk.field.locale, value => {
       // console.log("image changed", value)
-      if(value) {
-        this.fetchImageUrls()
+      if(value && value.imageSrcId) {
+        this.setImageUrls(value.imageSrcId);
       } else {
-        this.setState({
-          imageFile:  '',
-          imageFileTablet: '',
-          imageFileMobile: '',
-        })
+        this.removeSetUmageUrls();
       }
     })
   }
@@ -83,11 +70,51 @@ export class App extends React.Component {
     }
   }
 
+  componentDidUpdate() {
+    // Typical usage (don't forget to compare props):
+    // if (this.props.userID !== prevProps.userID) {
+    //   this.fetchData(this.props.userID);
+    // }
+
+    const nowId = (this.props.sdk.field.getValue() || {}).imageSrcId;
+
+    // console.log("nowId", nowId)
+    // console.log("this.state.imgSourceId", this.state.imgSourceId)
+
+    if(nowId && this.state.imgSourceId && nowId !== this.state.imgSourceId) {
+      // console.log("difffffffffffffffffffffffff")
+      this.debounceSetImageUrls(nowId)
+    }
+
+  }
+
   onExternalChange = value => {
     this.setState({ annotationsData: value });
   };
 
-  updateAnnotationData = (selectedImage, data, type) => {
+  deleteAnnotationData = () => {
+    this.props.sdk.field.removeValue();
+    this.setState({
+      annotationsData: {},
+      selectedImage: 'desktop',
+      selectedImageAnnotation: '',
+      toggleEdit: true,
+      toggleShow: true,
+      imageFile:  '',
+      imageFileTablet: '',
+      imageFileMobile: '',
+    });
+  }
+
+  updateAnnotationDataForProp = (propName, data) => {
+    if(propName) {
+      const annotationsData = this.props.sdk.field.getValue() || {};
+      annotationsData[propName] = data;
+      this.props.sdk.field.setValue(annotationsData);
+    }
+  };
+
+  updateAnnotationDataForImg = (selectedImage, data, type) => {
     if(selectedImage) {
       const annotationsData = this.props.sdk.field.getValue() || {};
       annotationsData[selectedImage] = annotationsData[selectedImage] || {};
@@ -95,32 +122,54 @@ export class App extends React.Component {
       // this.setState({ annotationsData: annotationsData });
       if (data) {
         this.props.sdk.field.setValue(annotationsData);
-      } else {
-        this.props.sdk.field.removeValue();
       }
+      // else {
+      //   this.props.sdk.field.removeValue();
+      // }
     }
   };
+  debounceSetImageUrls = debounce(value => {
+    this.setImageUrls(value);
+  }, 500);
+  setImageUrls = (id) => {
+    this.fetchImageUrls(id)
+      .then(data => {
+        this.setState(data);
+      }, () => {
+        this.removeSetUmageUrls();
+      })
+      .catch(() => {
+        this.removeSetUmageUrls();
+      })
+  }
 
-  fetchImageUrls = () => {
-    if(client) {
-      const imageSource = this.props.sdk.entry.fields.imageSource.getValue()
-      if(imageSource && imageSource.sys && imageSource.sys.id) {
-        client.getEntry(imageSource.sys.id)
-          .then((entry) => {
-            const { fields } = entry || {}
-            // console.log(fields)
-            const { imageFile, imageFileTablet, imageFileMobile } = fields || {}
+  removeSetUmageUrls = () => {
+    this.setState({
+      imageFile:  '',
+      imageFileTablet: '',
+      imageFileMobile: '',
+    })
+  }
 
-            this.setState({
-              imageFile: imageFile && imageFile.fields && imageFile.fields.file && imageFile.fields.file.url || '',
-              imageFileTablet: imageFileTablet && imageFileTablet.fields && imageFileTablet.fields.file && imageFileTablet.fields.file.url || '',
-              imageFileMobile: imageFileMobile && imageFileMobile.fields && imageFileMobile.fields.file && imageFileMobile.fields.file.url || '',
-            })
+  fetchImageUrls = async (imgSourceId) => {
+    // check for image_source_id
+    if(imgSourceId) {
+        // get the entry
+        const { fields } = await this.props.sdk.space.getEntry(imgSourceId);
+        const { imageFile: f1, imageFileTablet: f2, imageFileMobile: f3 } = fields || {};
+        const locale =  this.props.sdk.field.locale;
+        // get each image media file
+        const { fields: img1 } = f1 && f1[locale] && f1[locale].sys && f1[locale].sys.linkType === "Asset" && f1[locale].sys.id && await this.props.sdk.space.getAsset(f1[locale].sys.id) || {};
+        const { fields: img2 } = f2 && f2[locale] && f2[locale].sys && f2[locale].sys.linkType === "Asset" && f2[locale].sys.id && await this.props.sdk.space.getAsset(f2[locale].sys.id) || {};
+        const { fields: img3 } = f3 && f3[locale] && f3[locale].sys && f3[locale].sys.linkType === "Asset" && f3[locale].sys.id && await this.props.sdk.space.getAsset(f3[locale].sys.id) || {};
 
-          })
-          .catch(console.error)
+        return {
+          imgSourceId: imgSourceId,
+          imageFile: img1 && img1.file && img1.file[locale] && img1.file[locale].url || '',
+          imageFileTablet: img2 && img2.file && img2.file[locale] && img2.file[locale].url || '',
+          imageFileMobile: img3 && img3.file && img3.file[locale] && img3.file[locale].url || '',
+        }
       }
-    }
   }
 
   selectDesktopImage = () => {
@@ -153,7 +202,8 @@ export class App extends React.Component {
     }
   }
   getAnnotationData = (selectedImage, type) => {
-    const annotationsData = this.props.sdk.field.getValue() || {};
+    // const annotationsData = this.props.sdk.field.getValue() || {};
+    const annotationsData = this.state.annotationsData;
     annotationsData[selectedImage] = annotationsData[selectedImage] || { width: 'auto'};
     return annotationsData[selectedImage][type] || {};
   }
@@ -167,7 +217,7 @@ export class App extends React.Component {
       const newAnnotation = this.defaultAnnotation(newId);
       annotationsAdded[newAnnotation.id] = newAnnotation;
       this.setState({selectedImageAnnotation: {target: selectedImage, id: newAnnotation.id}});
-      this.updateAnnotationData(selectedImage, annotationsAdded, "annotations");
+      this.updateAnnotationDataForImg(selectedImage, annotationsAdded, "annotations");
     }
   }
   deleteAnnotation = () => {
@@ -178,7 +228,7 @@ export class App extends React.Component {
       if(id && annotationsAdded[id]) {
         delete annotationsAdded[id];
         this.setState({selectedImageAnnotation: ''});
-        this.updateAnnotationData(target, annotationsAdded, "annotations");
+        this.updateAnnotationDataForImg(target, annotationsAdded, "annotations");
       }
     }
   }
@@ -191,7 +241,7 @@ export class App extends React.Component {
     if(a && a.id && annotationsAdded[a.id]) {
       annotationsAdded[a.id] = {...annotationsAdded[a.id], ...a};
       // console.log("annotationsAdded[a.id]", annotationsAdded[a.id])
-      this.updateAnnotationData(selectedImage, annotationsAdded, "annotations");
+      this.updateAnnotationDataForImg(selectedImage, annotationsAdded, "annotations");
     }
   }
   debounceTryChnageText = debounce(value => {
@@ -268,7 +318,7 @@ export class App extends React.Component {
     const value = e.currentTarget.value;
     const { selectedImage } = this.state
     if(selectedImage) {
-      this.updateAnnotationData(selectedImage, value, "width");
+      this.updateAnnotationDataForImg(selectedImage, value, "width");
     }
   }
 
@@ -281,17 +331,41 @@ export class App extends React.Component {
     this.setState({toggleShow: !toggleShow});
   }
 
+  selectImageDialog = () => {
+    this.props.sdk.dialogs.selectSingleEntry({
+      locale: this.props.sdk.field.locale,
+      contentTypes: ["imageOption"],
+    }).then(selectedEntry => {
+      // console.log("selectedEntry", selectedEntry)
+      if (selectedEntry && selectedEntry.sys && selectedEntry.sys.id) {
+        this.updateAnnotationDataForProp("imageSrcId", selectedEntry.sys.id);
+      }
+    })
+  }
+
   render() {
     // console.log("imageSource", this.props.sdk.entry.fields.imageSource)
     // console.log("name", this.props.sdk.entry.fields.name.getValue())
-    const Annotation = Annotations["AnnotationCalloutCircle"]
+    // console.log("sdk", this.props.sdk)
+    const Annotation = Annotations["AnnotationCalloutCircle"];
 
-    const {imageFile, imageFileTablet, imageFileMobile} = this.state
-    const hasImg = imageFile || imageFileTablet || imageFileMobile
+    const {imageFile, imageFileTablet, imageFileMobile} = this.state;
+    const hasImg = imageFile || imageFileTablet || imageFileMobile;
+
+    // const {annotationsData} = this.state;
+    // console.log("render annotationsData", annotationsData)
+
+    // if(this.state.imgError) {
+    //   return  <div>
+    //     <div>{this.state.imgError}</div>
+    //   </div>
+    // }
 
     if(!hasImg) {
-      return  <div>
-        <div>Please add an image source first</div>
+      return <div className="linkingImage">
+        {/*<div><Icon icon="Plus" /> <TextLink>Create new image option</TextLink> </div>*/}
+        {/*<span className="css-1dwbrks" />*/}
+        <div><Icon icon="Link" /><TextLink onClick={this.selectImageDialog}>Link existing entry</TextLink></div>
       </div>
     }
 
@@ -313,6 +387,27 @@ export class App extends React.Component {
 
     return (
       <div className="ext-img-annotate">
+
+        <Dropdown
+          isOpen={this.state.optionDropOpen}
+          onClose={() => this.setState({optionDropOpen: false})}
+          toggleElement={
+            <Button size="small" buttonType="muted" indicateDropdown onClick={() => this.setState({optionDropOpen: true})} >Options</Button>
+          }>
+          <DropdownList >
+            <DropdownListItem onClick={() => this.setState({optionDropOpen: false}, this.selectImageDialog)} >
+              Change Image Option
+            </DropdownListItem>
+          </DropdownList>
+          <DropdownList border="top">
+            <DropdownListItem onClick={() => this.setState({optionDropOpen: false}, this.deleteAnnotationData)} >
+              ! Remove
+            </DropdownListItem>
+          </DropdownList>
+
+        </Dropdown>
+
+        <hr />
         <br />
         {hasImg && <div>Select an image to configure annotations</div>}
         <br />
@@ -328,7 +423,7 @@ export class App extends React.Component {
         <div>Settings for <b>{selectedImage && selectedImage.toUpperCase()}</b> image</div>
         <ul>
           <li>Added Annotations Count: {annotationItems.length} <Button buttonType="positive" icon="Plus" onClick={this.addAnnotation}>Add</Button></li>
-          <li>Display Size Width in Page: <Select className="widthInput" width="small" onChange={this.imageSizeChange}>
+          <li>Display Size when in Page - Width: <Select className="widthInput" width="small" onChange={this.imageSizeChange}>
             <Option testId="auto" value="auto">Auto</Option>
             {widthOptions[(selectedImage === "mobile" && "small") || "large"].map(o => {
               return <Option key={o} testId={o.toString()} value={o + "px"} >{o + "px"}</Option>
@@ -431,7 +526,7 @@ export class App extends React.Component {
 
             <li>
               Text: <TextInput className="inline" width="medium" value={(annotationSelected && annotationSelected.title) || ""} onChange={this.updateAnnotationTitle} />
-              Label: <TextInput className="inline" width="medium" value={(annotationSelected && annotationSelected.label) || ""} onChange={this.updateAnnotationLabel} />
+              &nbsp; Label: <TextInput className="inline" width="medium" value={(annotationSelected && annotationSelected.label) || ""} onChange={this.updateAnnotationLabel} />
               </li>
             <li>
               Size: <TextInput className="inline" width="small" type="number" min={10} value={(annotationSelected && annotationSelected.titleSize) || 10} onChange={this.updateAnnotationTitleSize} />

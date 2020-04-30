@@ -3,7 +3,6 @@
   "name": "contentful-ext-image-annotations",
   "srcdoc": "./build/index.html",
   "fieldTypes": [
-    "Symbol",
     "Object"
   ]
 }
