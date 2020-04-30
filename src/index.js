@@ -52,16 +52,6 @@ export class App extends React.Component {
     if(this.state.annotationsData && this.state.annotationsData.imageSrcId) {
       this.setImageUrls(this.state.annotationsData.imageSrcId);
     }
-
-
-    this.props.sdk.entry.fields.imageSource.onValueChanged(this.props.sdk.field.locale, value => {
-      // console.log("image changed", value)
-      if(value && value.imageSrcId) {
-        this.setImageUrls(value.imageSrcId);
-      } else {
-        this.removeSetUmageUrls();
-      }
-    })
   }
 
   componentWillUnmount() {
