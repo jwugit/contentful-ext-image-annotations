@@ -68,11 +68,11 @@ export class App extends React.Component {
 
     const nowId = (this.props.sdk.field.getValue() || {}).imageSrcId;
 
-    console.log("nowId", nowId)
-    console.log("this.state.imgSourceId", this.state.imgSourceId)
+    // console.log("nowId", nowId)
+    // console.log("this.state.imgSourceId", this.state.imgSourceId)
 
     if(nowId !== this.state.imgSourceId) {
-      console.log("diff")
+      // console.log("diff")
       this.debounceSetImageUrls(nowId)
     }
 
@@ -326,7 +326,7 @@ export class App extends React.Component {
       locale: this.props.sdk.field.locale,
       contentTypes: ["imageOption"],
     }).then(selectedEntry => {
-      console.log("selectedEntry", selectedEntry)
+      // console.log("selectedEntry", selectedEntry)
       if (selectedEntry && selectedEntry.sys && selectedEntry.sys.id) {
         this.updateAnnotationDataForProp("imageSrcId", selectedEntry.sys.id);
       }
