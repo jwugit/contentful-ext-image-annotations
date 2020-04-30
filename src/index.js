@@ -13,6 +13,7 @@ const widthOptions = {
   small: [320, 375, 414],
 }
 
+const delayOptions = [100, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 export const debounce = (fn, delay) => {
   let timeoutId
@@ -38,9 +39,6 @@ export class App extends React.Component {
       toggleEdit: true,
       toggleShow: true,
     };
-
-    this.imageRef = React.createRef();
-
   }
 
   componentDidMount() {
@@ -85,6 +83,7 @@ export class App extends React.Component {
   deleteAnnotationData = () => {
     this.props.sdk.field.removeValue();
     this.setState({
+      imgSourceId: '',
       annotationsData: {},
       selectedImage: 'desktop',
       selectedImageAnnotation: '',
@@ -109,15 +108,21 @@ export class App extends React.Component {
       const annotationsData = this.props.sdk.field.getValue() || {};
       annotationsData[selectedImage] = annotationsData[selectedImage] || {};
       annotationsData[selectedImage][type] = data;
-      // this.setState({ annotationsData: annotationsData });
       if (data) {
         this.props.sdk.field.setValue(annotationsData);
       }
-      // else {
-      //   this.props.sdk.field.removeValue();
-      // }
     }
   };
+
+
+  updateAnnotationData = (dataObj) => {
+      const annotationsData = this.props.sdk.field.getValue() || {};
+      const newData = Object.assign(annotationsData, dataObj)
+      if (dataObj) {
+        this.props.sdk.field.setValue(newData);
+      }
+  };
+
   debounceSetImageUrls = debounce(value => {
     this.setImageUrls(value);
   }, 500);
@@ -155,9 +160,9 @@ export class App extends React.Component {
 
         return {
           imgSourceId: imgSourceId,
-          imageFile: img1 && img1.file && img1.file[locale] && img1.file[locale].url || '',
-          imageFileTablet: img2 && img2.file && img2.file[locale] && img2.file[locale].url || '',
-          imageFileMobile: img3 && img3.file && img3.file[locale] && img3.file[locale].url || '',
+          imageFile: img1 && img1.file && img1.file[locale] && img1.file[locale] || '',
+          imageFileTablet: img2 && img2.file && img2.file[locale] && img2.file[locale] || '',
+          imageFileMobile: img3 && img3.file && img3.file[locale] && img3.file[locale] || '',
         }
       }
   }
@@ -194,8 +199,12 @@ export class App extends React.Component {
   getAnnotationData = (selectedImage, type) => {
     // const annotationsData = this.props.sdk.field.getValue() || {};
     const annotationsData = this.state.annotationsData;
-    annotationsData[selectedImage] = annotationsData[selectedImage] || { width: 'auto'};
-    return annotationsData[selectedImage][type] || {};
+    annotationsData[selectedImage] = annotationsData[selectedImage] || {};
+    if(type) {
+      return annotationsData[selectedImage][type] || {};
+    } else {
+      return annotationsData[selectedImage] || {};
+    }
   }
 
   addAnnotation = () => {
@@ -207,7 +216,25 @@ export class App extends React.Component {
       const newAnnotation = this.defaultAnnotation(newId);
       annotationsAdded[newAnnotation.id] = newAnnotation;
       this.setState({selectedImageAnnotation: {target: selectedImage, id: newAnnotation.id}});
-      this.updateAnnotationDataForImg(selectedImage, annotationsAdded, "annotations");
+
+      const data = {
+        [selectedImage]: {
+          annotations: annotationsAdded
+        }
+      }
+
+      if(annotationsAdded && !annotationsAdded.svgView) {
+        // this.updateAnnotationDataForImg(selectedImage, this.getImageDimension(selectedImage), "svgView");
+        data[selectedImage].svgView = this.getImageDimension(selectedImage);
+      }
+      if(annotationsAdded && !annotationsAdded.delay) {
+        // this.updateAnnotationDataForImg(selectedImage, 0, "delay");
+        data[selectedImage].delay = 0;
+      }
+
+      this.updateAnnotationData(data)
+      // this.updateAnnotationDataForImg(selectedImage, annotationsAdded, "annotations");
+
     }
   }
   deleteAnnotation = () => {
@@ -298,10 +325,18 @@ export class App extends React.Component {
   updateAlignMiddle = () => {this.updateAnnotationProps("align","middle")}
   updateAlignDynamic = () => {this.updateAnnotationProps("align","dynamic")}
 
-  getImageDimension = () => {
-    const width = this.imageRef && this.imageRef.current && this.imageRef.current.width || 700;
-    const height = this.imageRef && this.imageRef.current && this.imageRef.current.height || 500;
-    return {width, height}
+  getImageDimension = (selectedImage) => {
+    const {imageFile, imageFileTablet, imageFileMobile} = this.state;
+    const selectedImageFile = (selectedImage === 'desktop' && imageFile) || (selectedImage === 'tablet' && imageFileTablet) || (selectedImage === 'mobile' && imageFileMobile) || null
+
+    const {details, url} = selectedImageFile || {};
+    const width = details && details.image && details.image.width || 0;
+    const height = details && details.image && details.image.height || 0;
+
+    const defaultWidth = 700;
+    const heightRatioed = height * defaultWidth / width;
+
+    return {width: defaultWidth, height: heightRatioed, url: url}
   }
 
   imageSizeChange = e => {
@@ -309,6 +344,14 @@ export class App extends React.Component {
     const { selectedImage } = this.state
     if(selectedImage) {
       this.updateAnnotationDataForImg(selectedImage, value, "width");
+    }
+  }
+
+  delayOptionChange = e => {
+    const value = e.currentTarget.value;
+    const { selectedImage } = this.state
+    if(selectedImage) {
+      this.updateAnnotationDataForImg(selectedImage, value, "delay");
     }
   }
 
@@ -360,20 +403,19 @@ export class App extends React.Component {
     }
 
     const { selectedImage, selectedImageAnnotation, toggleEdit, toggleShow } = this.state
-    const selectedImageFile = (selectedImage === 'desktop' && imageFile) || (selectedImage === 'tablet' && imageFileTablet) || (selectedImage === 'mobile' && imageFileMobile) || null
-
-    const annotationsAdded = this.getAnnotationData(selectedImage, "annotations");
+    const imageAnnotationData = this.getAnnotationData(selectedImage, "");
+    const delay = imageAnnotationData.delay || 0;
+    const annotationsAdded = imageAnnotationData.annotations || {};
     const annotationSelected = (selectedImageAnnotation && selectedImageAnnotation.id && annotationsAdded[selectedImageAnnotation.id] && annotationsAdded[selectedImageAnnotation.id]) || {}
 
     const annotationItems = Object.keys(annotationsAdded);
 
+    // console.log("render imageAnnotationData", imageAnnotationData)
     // console.log("render annotationsData", annotationsData)
     // console.log("render annotationSelected", annotationSelected)
-    // console.log("render this.imageRef", this.imageRef)
 
-    const { width:imageWidth, height: imageHeight } = this.getImageDimension();
-    const defaultWidth = 700;
-    const heightRatioed = imageHeight * defaultWidth / imageWidth;
+    const { width: svgWidth, height: svgHeight, url: selectedImageFileUrl } = this.getImageDimension(selectedImage);
+
 
     return (
       <div className="ext-img-annotate">
@@ -402,23 +444,29 @@ export class App extends React.Component {
         {hasImg && <div>Select an image to configure annotations</div>}
         <br />
         <div className="imageList">
-          {imageFile && <div className={`exist ${selectedImage === "desktop" && "selected"}`} onClick={this.selectDesktopImage}> <img src={imageFile} alt="img" /> Desktop<br/></div>}
+          {imageFile && <div className={`exist ${selectedImage === "desktop" && "selected"}`} onClick={this.selectDesktopImage}> <img src={imageFile.url} alt="img" /> Desktop<br/></div>}
           {!imageFile && <div> <img src="" alt="" /> Desktop <br/>(missing)</div>}
-          {imageFileTablet && <div className={"exist " + (selectedImage === "tablet" && "selected")} onClick={this.selectTabletImage}> <img src={imageFileTablet} alt="img" /> Tablet</div>}
+          {imageFileTablet && <div className={"exist " + (selectedImage === "tablet" && "selected")} onClick={this.selectTabletImage}> <img src={imageFileTablet.url} alt="img" /> Tablet</div>}
           {!imageFileTablet && <div> <img src="" alt="" /> Tablet <br/>(missing)</div>}
-          {imageFileMobile && <div className={"exist " + (selectedImage === "mobile" && "selected")} onClick={this.selectMobileImage}> <img src={imageFileMobile} alt="img" /> Mobile</div>}
+          {imageFileMobile && <div className={"exist " + (selectedImage === "mobile" && "selected")} onClick={this.selectMobileImage}> <img src={imageFileMobile.url} alt="img" /> Mobile</div>}
           {!imageFileMobile && <div> <img src="" alt="" /> Mobile <br/>(missing)</div>}
         </div>
         <hr />
         <div>Settings for <b>{selectedImage && selectedImage.toUpperCase()}</b> image</div>
         <ul>
           <li>Added Annotations Count: {annotationItems.length} <Button buttonType="positive" icon="Plus" onClick={this.addAnnotation}>Add</Button></li>
-          <li>Display Size when in Page - Width: <Select className="widthInput" width="small" onChange={this.imageSizeChange}>
-            <Option testId="auto" value="auto">Auto</Option>
-            {widthOptions[(selectedImage === "mobile" && "small") || "large"].map(o => {
-              return <Option key={o} testId={o.toString()} value={o + "px"} >{o + "px"}</Option>
+          {/*<li>Display Size when in Page - Width: <Select className="widthInput" width="small" onChange={this.imageSizeChange}>*/}
+          {/*  <Option testId="auto" value="auto">Auto</Option>*/}
+          {/*  {widthOptions[(selectedImage === "mobile" && "small") || "large"].map(o => {*/}
+          {/*    return <Option key={o} testId={o.toString()} value={o + "px"} >{o + "px"}</Option>*/}
+          {/*  })}*/}
+          {/*</Select></li>*/}
+          <li>Animation Delay (milliseconds): <Select className="widthInput" width="small" value={delay} onChange={this.delayOptionChange}>
+            <Option value="0">None</Option>
+            {delayOptions.map(o => {
+              return <Option key={o} value={o} >{o}</Option>
             })}
-          </Select></li>
+          </Select> 1000 millisecond = 1 second</li>
           <li>
             <Button buttonType={toggleEdit ? "positive" : "negative"} icon="Cycle" onClick={this.toggleEdit}>Toggle Edit</Button>
             <Button buttonType={toggleShow ? "positive" : "negative"} icon="Cycle" onClick={this.toggleShow}>Toggle Show</Button>
@@ -429,46 +477,10 @@ export class App extends React.Component {
 
         <div className="annotationPanel">
           <div className='selectedImage'>
-            <img ref={this.imageRef} src={selectedImageFile} alt="" />
-            {toggleShow && <svg className="selectedImageAnnotation" viewBox={`0 0 ${defaultWidth} ${heightRatioed}`}>
+            <img src={selectedImageFileUrl} alt="" />
+            {toggleShow && svgHeight && <svg className="selectedImageAnnotation" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
               <svg className="selectedImageAnnotationInner">
                 <path />
-                {/*<Trail*/}
-                {/*  native*/}
-                {/*  keys={item => item}*/}
-                {/*  items={annotationItems}>*/}
-                {/*  {item => trailProps => {*/}
-                {/*    console.log(trailProps)*/}
-                {/*    const a = annotationsAdded[item];*/}
-                {/*    const isSelected = selectedImageAnnotation && selectedImageAnnotation.target === selectedImage && selectedImageAnnotation.id === a.id;*/}
-
-                {/*    return <Annotation*/}
-                {/*      className={isSelected ? "selectedAnn" : ""}*/}
-                {/*      key={`a_${a.id}`}*/}
-                {/*      x={a.x}*/}
-                {/*      y={a.y}*/}
-                {/*      dx={a.dx}*/}
-                {/*      dy={a.dy}*/}
-                {/*      editMode={toggleEdit}*/}
-                {/*      subject={{ radius: a.radius, radiusPadding: 0 }}*/}
-                {/*      onDragEnd={props => {*/}
-                {/*        // console.log("onDragEnd", props)*/}
-                {/*        a.x = props.x;*/}
-                {/*        a.y = props.y;*/}
-                {/*        a.dx = props.dx;*/}
-                {/*        a.dy = props.dy;*/}
-                {/*        a.radius = props.radius;*/}
-                {/*        this.setState({selectedImageAnnotation: {target: selectedImage, id: a.id}});*/}
-                {/*        this.updateAnnotation(a);*/}
-                {/*      }}*/}
-                {/*      connector={{ type: a.connect, end: a.end }}*/}
-                {/*      note={{title:a.title, label: a.label, lineType: a.lineType, align: a.align, titleSize: a.titleSize + "px", wrapSplitter: /[\n]+/ }}*/}
-                {/*      color={a.color}*/}
-                {/*      strokeWidth={a.strokeWidth}*/}
-                {/*    />*/}
-                {/*  }}*/}
-                {/*</Trail>*/}
-
                 {annotationItems.map((k, idx) => {
                   const a = annotationsAdded[k];
                   const isSelected = selectedImageAnnotation && selectedImageAnnotation.target === selectedImage && selectedImageAnnotation.id === a.id;
@@ -493,17 +505,16 @@ export class App extends React.Component {
                       this.updateAnnotation(a);
                     }}
                     connector={{ type: a.connect, end: a.end }}
-                    note={{title:a.title, label: a.label, lineType: a.lineType, align: a.align, titleSize: a.titleSize + "px", wrapSplitter: /[\n]+/ }}
+                    note={{title:a.title, label: a.label, lineType: a.lineType, align: a.align, titleSize: a.titleSize + "px", wrapSplitter: /---/ }}
                     color={a.color}
                     strokeWidth={a.strokeWidth}
+                    delay={idx * delay}
                   />
                 })}
 
               </svg>
             </svg>}
           </div>
-
-
         </div>
         {toggleEdit && selectedImageAnnotation && selectedImageAnnotation.id && <div>
           <hr />
@@ -517,7 +528,10 @@ export class App extends React.Component {
             <li>
               Text: <TextInput className="inline" width="medium" value={(annotationSelected && annotationSelected.title) || ""} onChange={this.updateAnnotationTitle} />
               &nbsp; Label: <TextInput className="inline" width="medium" value={(annotationSelected && annotationSelected.label) || ""} onChange={this.updateAnnotationLabel} />
-              </li>
+            </li>
+            <li>
+              Note: Use --- to line break text and label
+            </li>
             <li>
               Size: <TextInput className="inline" width="small" type="number" min={10} value={(annotationSelected && annotationSelected.titleSize) || 10} onChange={this.updateAnnotationTitleSize} />
               &nbsp; Color: <TextInput className="inline" width="small" value={(annotationSelected && annotationSelected.color) || ""} onChange={this.updateAnnotationTextColor} />
