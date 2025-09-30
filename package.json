@@ -21,7 +21,7 @@
     "@babel/preset-env": "^7.3.4",
     "@babel/preset-react": "^7.0.0",
     "@testing-library/react": "8.0.4",
-    "contentful-cli": "0.33.2",
+    "contentful-cli": "3.8.15",
     "cssnano": "4.1.10",
     "eslint": "^6.0.1",
     "sass": "^1.26.3"
@@ -32,7 +32,7 @@
     "@contentful/forma-36-fcss": "^0.0.20",
     "@contentful/forma-36-react-components": "^3.11.3",
     "@contentful/forma-36-tokens": "^0.3.0",
-    "contentful": "^7.14.2",
+    "contentful": "^11.8.1",
     "contentful-ui-extensions-sdk": "3.9.0",
     "material-ui": "^0.20.2",
     "prop-types": "^15.7.2",
