@@ -23,7 +23,7 @@
     "@testing-library/react": "8.0.4",
     "contentful-cli": "0.33.2",
     "cssnano": "4.1.10",
-    "eslint": "^6.0.1",
+    "eslint": "^9.26.0",
     "sass": "^1.26.3"
   },
   "dependencies": {
